@@ -170,7 +170,7 @@ int main()
 		perror("open");
 		return -1;
 	}
-	while (scanning_sound(4200, 0, test_address, mod_samples)) {
+	while (scanning_sound(4200, 0, test_address2, mod_samples)) {
 		ret = write(fd, mod_samples, ALE_SYMBOL_SIZE*ALE_TX_WORD_LEN*sizeof(short));
 		if (ret < ALE_SYMBOL_SIZE*ALE_TX_WORD_LEN*sizeof(short)) {
 			perror("write");

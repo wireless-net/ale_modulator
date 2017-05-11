@@ -25,7 +25,7 @@
 #include "mod.h"
 #include "golay.h"
 
-const short ale_symbol_library[ALE_SYMBOL_COUNT][ALE_SYMBOL_SIZE] = ALE_SYMBOL_LIBRARY;
+const int ale_symbol_library[ALE_SYMBOL_COUNT][ALE_SYMBOL_SIZE] = ALE_SYMBOL_LIBRARY;
 
 /* 
  * Build array of address words from the given null terminated string.
@@ -100,6 +100,7 @@ int build_address_words(int type, char *address, unsigned int *words, int *len)
  * 
  * Returns word index. Must be called with same words and len and new samples buffers until return == len.
  */
+#define TESTING
 
 int mod(unsigned int *words, int len, short *samples)
 {
@@ -108,16 +109,35 @@ int mod(unsigned int *words, int len, short *samples)
 	static int word_idx = 0;
 	unsigned int half_wordA;
 	unsigned int half_wordB;
-	int i,j;
+	int i,j,k;
 	unsigned char bits[ALE_TX_WORD_LEN];
 	int sym;
 
-	/* word B from top 12 bits */
-	half_wordB = (words[word_idx] >> 12) & 0xfff;
+#ifdef TESTING
+	static FILE *test_in = 0;
+	static FILE *test_out_golden = 0;
+	if (!test_in) {
+		test_in = fopen("test_in.dat","w");
+		if (test_in == NULL) {
+			printf("error opening test_in.dat\n");
+		}
+	}
+	if (!test_out_golden) {
+		test_out_golden = fopen("test_out_golden.dat","w");
+		if (test_out_golden == NULL) {
+			printf("error opening test_out_golden.dat\n");
+		}
+	}
+
+	// fprintf(test_in, "%d\n", words[word_idx]);
+#endif
+
+	/* word B from bottom 12 bits */
+	half_wordB = words[word_idx] & 0xfff;
 	codeB = golay_encode(half_wordB);
 
-	/* word A from bottom 12 bits */
-	half_wordA = words[word_idx] & 0xfff;
+	/* word A from top 12 bits */
+	half_wordA = (words[word_idx] >> 12) & 0xfff;
 	codeA = golay_encode(half_wordA);
 
 	codeB = codeB ^ 0xFFF;
@@ -143,9 +163,28 @@ int mod(unsigned int *words, int len, short *samples)
 		
 		sym |= bits[j] << 0; 
 		j = (j+1)%ALE_TX_WORD_LEN;
-		memcpy(samples, ale_symbol_library[sym], ALE_SYMBOL_SIZE*sizeof(short));
-		samples+=ALE_SYMBOL_SIZE;
+
+
+#ifdef TESTING
+		fprintf(test_in, "%d\n", sym);
+#endif
+// #ifdef TESTING
+		// fprintf(test_out_golden, "%d\n", sym);
+		// fflush(test_in);
+		// fflush(test_out_golden);		
+// #endif
+		// memcpy(samples, ale_symbol_library[sym], ALE_SYMBOL_SIZE*sizeof(short));
+		for (k=0; k<ALE_SYMBOL_SIZE;k++) {
+			*samples++ = ale_symbol_library[sym][k] >> 8;
+			fprintf(test_out_golden, "%d\n",ale_symbol_library[sym][k]);
+		}		
+		// samples+=ALE_SYMBOL_SIZE;
 	}
+
+#ifdef TESTING
+	fflush(test_in);
+	fflush(test_out_golden);		
+#endif
 
 	word_idx++;
 	if (word_idx == len) {
@@ -186,6 +225,9 @@ int scanning_sound(int scan_time_ms, int resp_req, char *address, short *samples
 			printf("build_address_words() FAILED (ret = %d)\n", ret);
 			return -1;
 		}
+		// for (i = 0; i < encoded_len; i++){
+			// printf("%d = <<%d,%d,%d>>\n",words[i], (words[i]>>0)&0xff,(words[i]>>8)&0xff,(words[i]>>16)&0xff);
+		// }
 	}
 
 	/* Ta is 392ms, scanning sound time must be n*Ta >= scan_time_ms */
